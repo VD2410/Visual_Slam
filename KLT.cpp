@@ -33,7 +33,7 @@
 //
 //    std::string detectorType = "Feature2D.BRISK";
 //    Ptr<FeatureDetector>detector = Algorithm::create<FeatureDetector>(detectorType);
-//	detector->set("thres", 100);
+//  detector->set("thres", 100);
 //
 //
 //    detector->detect( img_1, kps );
@@ -118,7 +118,7 @@ cv::Matx33d Findfundamental(vector<cv::Point2f> prev_subset,vector<cv::Point2f> 
         Point1.at<double>(0,0)=prev_subset[i].x;
         Point1.at<double>(1,0)=prev_subset[i].y;
         Point1.at<double>(2,0)=1.0;
-	Point1 = Norm * Point1;
+    Point1 = Norm * Point1;
         Point2.at<double>(0,0)=next_subset[i].x;
         Point2.at<double>(1,0)=next_subset[i].y;
         Point2.at<double>(2,0)=1.0;
@@ -160,30 +160,41 @@ cv::Matx33d Findfundamental(vector<cv::Point2f> prev_subset,vector<cv::Point2f> 
 
     F= f_test;
 
+    // F(0,0) = F(0,0) / F(2,2);
+    // F(0,1) = F(0,1) / F(2,2);
+    // F(0,2) = F(0,2) / F(2,2);
+    // F(1,0) = F(1,0) / F(2,2);
+    // F(1,1) = F(1,1) / F(2,2);
+    // F(2,0) = F(2,0) / F(2,2);
+    // F(2,1) = F(2,1) / F(2,2);
+    // F(2,2) = F(2,2) / F(2,2);
+    // F(1,2) = F(1,2) / F(2,2);
+
     return F;
 }
 
 
 
-bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d Fcandidate,double d){
+bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d candidate,double threshold){
     
+    Matx31d Point1;
+    Point1(0,0)=prev_keypoint.x;
+    Point1(0,1)=prev_keypoint.y;
+    Point1(0,2)=1.0;
     Matx31d Point2;
     Point2(0,0)=next_keypoint.x;
     Point2(0,1)=next_keypoint.y;
     Point2(0,2)=1.0;
-    auto epipolar_line = Fcandidate.t()*Point2;
+    auto epipolar_line = candidate.t()*Point2;
     float a = epipolar_line(0,0);
     float b = epipolar_line(1,0);
     float c = epipolar_line(2,0);
-    float u = prev_keypoint.x;
-    float v = prev_keypoint.y;
-    float dist = abs(a*u+b*v+c)/sqrt(a*a+b*b);
+    float u = Point1(0,0);
+    float v = Point1(0,1);
+    float distance = abs(a*u+b*v+c)/sqrt(a*a+b*b);
     
-    if(dist<=d)
-    {
-        //cout<<"distance "<<dist<<endl;
+    if(distance<=threshold)
         return true;
-    }      
     else
         return false;
 }
@@ -235,68 +246,66 @@ void displayEpipolar(Mat img_1, Mat img_2, vector<cv::Point2f> prev_keypoints,ve
 }
 
 void findPose(const Matx33d &E, Matx44d &P1, Matx44d &P2, Matx44d &P3, Matx44d &P4)
-{
-    Matx33d W(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-    Matx33d Z(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0);
-    SVD svd(E);
-    Mat R1 = svd.u * Mat(W).t() * svd.vt;
-    if(cv::determinant(R1)<0)
-        R1=-R1;
+{       Matx33d W(0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+        Matx33d Z(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0);
+        SVD svd(E);
+        Mat R1 = svd.u * Mat(W).t() * svd.vt;
+        if(cv::determinant(R1)<0)
+            R1=-R1;
 
-     Mat R2 = svd.u * Mat(W) * svd.vt;
-    if(cv::determinant(R2)<0)
-        R2=-R2;
+         Mat R2 = svd.u * Mat(W) * svd.vt;
+        if(cv::determinant(R2)<0)
+            R2=-R2;
 
-    double scal = (svd.w.at<double>(0,0)+svd.w.at<double>(1,0))/2; 
-    cout<<"svd(E) w"<<svd.w<<endl;
-    cout<<"scalar "<<scal<<endl;
-    Mat S1 = -svd.u * Mat(Z) * svd.u.t();
-    Mat S2 = svd.u * Mat(Z) * svd.u.t();
-    S1 = scal*S1;
-    S2 = scal*S2;
-    
-    SVD svd_S1(S1);
-    cout<<"svd_S1.vt "<<svd_S1.vt<<endl;
-    Mat u3_1(3, 1, CV_64FC1);
-    u3_1.at<double>(0,0) = svd_S1.vt.at<double>(2,0);
-    u3_1.at<double>(1,0) = svd_S1.vt.at<double>(2,1);
-    u3_1.at<double>(2,0) = svd_S1.vt.at<double>(2,2);
-    u3_1 = u3_1;
+        double scal = (svd.w.at<double>(0,0)+svd.w.at<double>(1,0))/2; 
+        cout<<"svd(E) w"<<endl<<svd.w<<endl;
+        Mat S1 = -svd.u * Mat(Z) * svd.u.t();
+        Mat S2 = svd.u * Mat(Z) * svd.u.t();
+        S1 = scal*S1;
+        S2 = scal*S2;
+        
+        SVD svd_S1(S1);
+        Mat u3_1(3, 1, CV_64FC1);
+        u3_1.at<double>(0,0) = svd_S1.vt.at<double>(2,0);
+        u3_1.at<double>(1,0) = svd_S1.vt.at<double>(2,1);
+        u3_1.at<double>(2,0) = svd_S1.vt.at<double>(2,2);
+        u3_1 = u3_1;
 
-    SVD svd_S2(S2);
-    cout<<"svd_S2.vt "<<svd_S2.vt<<endl;
-    Mat u3_2(3, 1, CV_64FC1);
-    u3_2.at<double>(0,0) = svd_S2.vt.at<double>(2,0);
-    u3_2.at<double>(1,0) = svd_S2.vt.at<double>(2,1);
-    u3_2.at<double>(2,0) = svd_S2.vt.at<double>(2,2);
-    u3_2 = u3_2;
-    for (int i=0; i<3; i++)
-    {
-        for(int j = 0; j<3; j++)
-            P1(i,j) = R2.at<double>(i,j);
-        P1(i,3) = u3_2.at<double>(i,0);
-    } 
+        SVD svd_S2(S2);
+        Mat u3_2(3, 1, CV_64FC1);
+        u3_2.at<double>(0,0) = svd_S2.vt.at<double>(2,0);
+        u3_2.at<double>(1,0) = svd_S2.vt.at<double>(2,1);
+        u3_2.at<double>(2,0) = svd_S2.vt.at<double>(2,2);
+        u3_2 = u3_2;
+        for (int i=0; i<3; i++)
+        {
+            for(int j = 0; j<3; j++)
+                P1(i,j) = R2.at<double>(i,j);
+            P1(i,3) = u3_2.at<double>(i,0);
+        } 
 
 
-    for (int i=0; i<3; i++)
-    {
-        for(int j = 0; j<3; j++)
-            P2(i,j) = R1.at<double>(i,j);
-        P2(i,3) = u3_1.at<double>(i,0);
-    } 
-    for (int i=0; i<3; i++)
-    {
-        for(int j = 0; j<3; j++)
-            P3(i,j) = R2.at<double>(i,j);
-        P3(i,3) = -u3_2.at<double>(i,0);
-    }
+        for (int i=0; i<3; i++)
+        {
+            for(int j = 0; j<3; j++)
+                P2(i,j) = R1.at<double>(i,j);
+            P2(i,3) = u3_1.at<double>(i,0);
+        } 
+        for (int i=0; i<3; i++)
+        {
+            for(int j = 0; j<3; j++)
+                P3(i,j) = R2.at<double>(i,j);
+            P3(i,3) = -u3_2.at<double>(i,0);
+        }
 
-    for (int i=0; i<3; i++)
-    {
-        for(int j = 0; j<3; j++)
-            P4(i,j) = R1.at<double>(i,j);
-        P4(i,3) = -u3_1.at<double>(i,0);
-    }
+        for (int i=0; i<3; i++)
+        {
+            for(int j = 0; j<3; j++)
+                P4(i,j) = R1.at<double>(i,j);
+            P4(i,3) = -u3_1.at<double>(i,0);
+        }
+
+        cout<<"P1"<<P1<<endl<<"P2"<<endl<<P2<<endl<<"P3"<<P3<<endl<<"P4"<<P4;
    
 }
 
@@ -422,7 +431,7 @@ int main( int argc, char** argv )
 
     int niter = static_cast<int>(std::ceil(std::log(1.0-p)/std::log(1.0-std::pow(1.0-e,8))));
     Mat Fundamental;
-    cv::Matx33d F,Fcandidate;
+    cv::Matx33d F,candidate;
     int bestinliers = -1;
     vector<cv::Point2f> prev_subset,next_subset;
     int matches = kps_prev.size();
@@ -443,16 +452,16 @@ for(int i=0;i<niter;i++){
             next_subset.push_back(kps_next[random_indices[j]]);
         }   
         // step2: perform 8pt algorithm, get candidate F
-        Fcandidate = Findfundamental(prev_subset,next_subset);
+        candidate = Findfundamental(prev_subset,next_subset);
         // step3: Evaluate inliers, decide if we need to update the best solution
         int inliers = 0;
         for(size_t j=0;j<kps_prev.size();j++){
-            if(checkinlier(kps_prev[j],kps_next[j],Fcandidate,d))
+            if(checkinlier(kps_prev[j],kps_next[j],candidate,d))
                 inliers++;
         }
         if(inliers > bestinliers)
         {
-            F = Fcandidate;
+            F = candidate;
             bestinliers = inliers;
         }
         prev_subset.clear();
@@ -470,7 +479,6 @@ for(int i=0;i<niter;i++){
     }
     F = Findfundamental(prev_subset,next_subset);
     
-
     cout<<"Fundamental matrix-----------------------------------"<<endl<<F<<endl;
     displayEpipolar(img_1, img_2, prev_subset, next_subset, F);
     FileStorage fs("../config/default.yaml", FileStorage::READ);
@@ -501,12 +509,9 @@ for(int i=0;i<niter;i++){
     cout<<"R & T"<<endl<<bestPose<<endl;
     Matx34d Projection_Matrix(1, 0, 0, 0, 0 ,1, 0, 0, 0, 0, 1, 0);
     Matx34d bestCameraPose = K*Projection_Matrix*bestPose;
-    cout<<"Best Camera Pose "<<bestCameraPose<<endl;
+    cout<<"Best Camera Pose "<<endl<<bestCameraPose<<endl;
     Vector<Point3f> test = triangulationPoints(bestPose, prev_subset, next_subset, K);
-    for(int i=0; i<test.size(); i++)
-    {
-        cout<<test[i]<<endl;
-    }
+    cout<<"Tringulation point"<<endl<<test[0]<<endl;
 
     return 0;
 }
