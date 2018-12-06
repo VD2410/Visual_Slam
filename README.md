@@ -1,1 +1,1 @@
-# Visual_Slam
+# simple_visual_odometry

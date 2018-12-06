@@ -1,0 +1,4 @@
+/home/vbatvia/simple_visual_odometry-master/build/CMakeFiles/edit_cache.dir
+/home/vbatvia/simple_visual_odometry-master/build/CMakeFiles/featuredetector.dir
+/home/vbatvia/simple_visual_odometry-master/build/CMakeFiles/rebuild_cache.dir
+/home/vbatvia/simple_visual_odometry-master/build/CMakeFiles/klt.dir
