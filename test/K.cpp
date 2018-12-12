@@ -98,11 +98,93 @@ using namespace cv;
 
 cv::Matx33d Findfundamental(vector<cv::Point2f> prev_subset,vector<cv::Point2f> next_subset){
     cv::Matx33d F;
+    cv::Mat A(1,9,CV_64FC1);
+    cv::Mat f(3,3,CV_64FC1);
+    cv::Mat Normalization(3,3,CV_64FC1,double(0));
+    Normalization.at<double>(0,0) = 2.0 / 640.0;
+    Normalization.at<double>(0,2) = -1;
+    Normalization.at<double>(1,1) = 2.0 / 480.0;
+    Normalization.at<double>(1,2) = -1;
+    Normalization.at<double>(2,2) = 1;
+    
+    cv::Mat Point1(3,1,CV_64FC1);
+    cv::Mat Point2(3,1,CV_64FC1);
+    for(int i = 0; i < prev_subset.size(); i++){
+        Point1.at<double>(0,0) = prev_subset[i].x;
+        Point1.at<double>(1,0) = prev_subset[i].y;
+        Point1.at<double>(2.0) = 1;
+        
+        Point2.at<double>(0,0) = next_subset[i].x;
+        Point2.at<double>(1,0) = next_subset[i].y;
+        Point2.at<double>(2.0) = 1;
+        
+        Point1 *= Normalization;
+        Point2 *= Normalization;
+        cv:Mat Point = Point2 * Point1.t();
+        int q = 0;
+        for(int j = 0; j<3;j++){
+            for(int k = 0; k<3;k++){
+                A.at<double>(i,q) = Point.at<double>(j,k);
+                q++;
+            }
+        }
+    }
+        
+    SVD svd(A);
+        
+    q = 0;
+    for(int j = 0; j<3;j++){
+        for(int k = 0; k<3;k++){
+            f.at<double>(j,k) = svd.vt.at<double>(svd.vt.rows-1,q);
+            q++;
+        }
+    }
+        
+    SVD newsvd(f);
+    cv::Mat w(3,3,CV_64FC1,double(0));
+        
+    w.at<double>(0,0) = newsvd.w.at<double>(0,0);
+    w.at<double>(1,1) = newsvd.w.at<double>(1,0);
+    F = newsvd.u * w * newsvd.vt;
+    F = Normalization.t() * F * Normalization;
+        
+    //for(int j = 0; j<3;j++){
+    //     for(int k = 0; k<3;k++){
+    //        F.at<double>(j,k) /= F.at<double>(2,2);
+    //     }
+    //}
+        
+        
+    
+    
     //fill the blank
     return F;
 }
 bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d Fcandidate,double d){
     //fill the blank
+    cv::Mat Point1(3,1,CV_64FC1,double(1));
+    cv::Mat Point2(3,1,CV_64FC1,double(0));
+        
+    Point2.at<double>(0,0) = next_subset[i].x;
+    Point2.at<double>(1,0) = next_subset[i].y;
+    
+    Mat epiLine = Fcandidate.t() * Point2;
+    
+    double a = epiLine(0,0);
+    double b = epiLine(1,0);
+    double c = epiLine(2,0);
+    
+    Point1.at<double>(0,0) = prev_subset[i].x;
+    Point1.at<double>(1,0) = prev_subset[i].y;
+    
+    double u = Point1.at<double>(0,0);
+    double v = Point1.at<double>(1,0);
+    
+    double distance = abs(a*u+b*v+c)/sqrt(a*a+b*b);
+    
+    if(distance<=d)
+        return true;
+    
     return false;
 }
 
