@@ -163,10 +163,10 @@ cv::Matx33d Findfundamental(vector<cv::Point2f> prev_subset,vector<cv::Point2f> 
 bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d Fcandidate,double d){
     //fill the blank
     cv::Mat Point1(3,1,CV_64FC1,double(1));
-    cv::Mat Point2(3,1,CV_64FC1,double(0));
+    cv::Mat Point2(3,1,CV_64FC1,double(1));
         
-    Point2.at<double>(0,0) = next_subset[i].x;
-    Point2.at<double>(1,0) = next_subset[i].y;
+    Point2.at<double>(0,0) = next_subset.x;
+    Point2.at<double>(1,0) = next_subset.y;
     
     Mat epiLine = Fcandidate.t() * Point2;
     
@@ -174,8 +174,8 @@ bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d
     double b = epiLine(1,0);
     double c = epiLine(2,0);
     
-    Point1.at<double>(0,0) = prev_subset[i].x;
-    Point1.at<double>(1,0) = prev_subset[i].y;
+    Point1.at<double>(0,0) = prev_subset.x;
+    Point1.at<double>(1,0) = prev_subset.y;
     
     double u = Point1.at<double>(0,0);
     double v = Point1.at<double>(1,0);
@@ -187,6 +187,9 @@ bool checkinlier(cv::Point2f prev_keypoint,cv::Point2f next_keypoint,cv::Matx33d
     
     return false;
 }
+
+
+
 
 int main( int argc, char** argv )
 {
@@ -298,5 +301,57 @@ int main( int argc, char** argv )
     F = Findfundamental(prev_subset,next_subset);
 
     cout<<"Fundamental matrix is \n"<<F<<endl;
+    
+    //Visualize
+    hconcat(img_1,img_2,img_1);
+    for ( int i=0; i< prev_subset.size() ;i++)
+    {
+        
+        cv::Mat Point1(3,1,CV_64FC1,double(1));
+        cv::Mat Point2(3,1,CV_64FC1,double(1));
+        
+        Point2.at<double>(0,0) = next_subset[i].x;
+        Point2.at<double>(1,0) = next_subset[i].y;
+        
+        
+        Point1.at<double>(0,0) = prev_subset[i].x;
+        Point1.at<double>(1,0) = prev_subset[i].y;
+        
+        Point pt1,pt2;
+        cv::Mat epiLine = Fcandidate.t()*Point2;
+        pt2.x =  next_subset[i].x + img_2.size[1];
+        pt2.y =  -((epiLine.at<double>(2,0)+epiLine.at<double>(0,0)*img_2.size[1])/epiLine.at<double>(1,0));
+        
+        pt1.x = img_2.size[1];
+        pt1.y = -(epiLine.at<double>(2,0)/epiLine.at<double>(1,0))
+
+        line(img_1, pt1, pt2, cv::Scalar(0,255,255));
+        circle(img_1, next_subset[i], 5, cv::Scalar(0, 0, 255), -1);
+    }
+
+    cv::imshow("klt tracker", img_1);
+    cv::waitKey(0);
+    
+    //Triangulation
+    cv::Mat K(3,3,CV_64FC1,double(0));
+    cv::FileStorage file = cv::FileStorage( "../config/default.yaml", cv::FileStorage::READ );
+    double fx,fy,cx,cy;
+    fx = file["camera.fx"];
+    fy = file["camera.fy"];
+    cx = file["camera.cx"];
+    cy = file["camera.cy"]; 
+    
+    K.at<double>(0,0) = fx;
+    K.at<double>(0,2) = cx;
+    K.at<double>(1,1) = fy;
+    K.at<double>(1,2) = cx;
+    K.at<double>(2,2) = 1;
+    
+    cv::Mat E_mat(3,3,CV_64FC1,double(0));
+    
+    E_mat = K.t()*F*K;
+    
+    cout<<"Essential matrix is \n"<<E_mat<<endl;
+    
     return 0;
 }
